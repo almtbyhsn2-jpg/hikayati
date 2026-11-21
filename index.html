@@ -206,7 +206,7 @@ header.solid .bar{background:rgba(22,10,51,.72);border-color:var(--line);backdro
 @keyframes marq{to{transform:translateX(50%)}}
 
 /* ============ BOOK (pinned) ============ */
-.book{position:relative;height:330vh;background:var(--deep)}
+.book{position:relative;height:240vh;background:var(--deep)}
 .pin{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 .book .bg{position:absolute;inset:0;background:#120830 url(الملفات/الصور/dunes.jpg) 18% center/cover no-repeat;will-change:transform;transform-origin:22% 62%}
 .book .shade{position:absolute;inset:0;background:linear-gradient(270deg, rgba(13,6,32,.96) 0%, rgba(13,6,32,.9) 34%, rgba(13,6,32,.25) 62%, rgba(13,6,32,0) 80%)}
@@ -223,7 +223,7 @@ header.solid .bar{background:rgba(22,10,51,.72);border-color:var(--line);backdro
 .st .p{font-size:17px}
 
 /* ============ TRANSFORM (pinned) ============ */
-.trans{position:relative;height:250vh;background:var(--night)}
+.trans{position:relative;height:180vh;background:var(--night)}
 .trans .pin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:90px 20px 40px;text-align:center}
 .trans .p{margin:0 auto;text-align:center}
 .cmpw{position:relative;display:flex;align-items:center;gap:22px}
@@ -417,7 +417,7 @@ footer small{display:block;margin-top:8px;font-size:12px}
   .dial{width:34px;height:34px}.eyes .t{flex-direction:row;align-items:baseline;gap:8px;font-size:12px}.eyes .t strong{font-size:16px}
   .ribbon{margin-top:-18px}.ribbon span{font-size:17px;padding:10px 16px;gap:14px}
   /* book */
-  .book{height:300vh}
+  .book{height:220vh}
   .book .bg{background-position:30% center}
   .book .shade{background:linear-gradient(0deg, rgba(13,6,32,.97) 0%, rgba(13,6,32,.9) 42%, rgba(13,6,32,.15) 72%, rgba(13,6,32,.3) 100%)}
   .steps{top:auto;bottom:100px;right:20px;left:20px;transform:none;width:auto;grid-template-columns:1fr;gap:0}
@@ -429,7 +429,7 @@ footer small{display:block;margin-top:8px;font-size:12px}
   .st.on{opacity:1}
   .st .p{font-size:15.5px}
   /* transform */
-  .trans{height:220vh}
+  .trans{height:160vh}
   .trans .pin{gap:18px;padding:90px 18px 100px}
   .cmpw{gap:0;flex-direction:column}
   .cmpw .side{display:none}
@@ -809,6 +809,7 @@ function heroIn() {
 /* ---------- main loop ---------- */
 function loop(t) {
   cx += (tx - cx) * .22; cy += (ty - cy) * .22; cur.style.transform = `translate(${cx}px,${cy}px)`;
+  if (scrollY > innerHeight * 1.15) { lastF = t; acc = 0; requestAnimationFrame(loop); return; } // hero off-screen: skip falcon work
   const dt = Math.min(100, t - (lastF || t)); lastF = t; acc += dt;
   while (acc >= 1000 / FPS) {
     acc -= 1000 / FPS;
@@ -870,7 +871,7 @@ const books = [
 ];
 const countries = ['الإمارات', 'السعودية', 'الكويت', 'قطر', 'البحرين', 'عُمان']; let country = 0;
 const natText = () => `باليوم الوطني ل${countries[country]}، يقود البطل موكب الاحتفال بين معالم وطنه.`;
-const ON = books.length, ORBIT_X = 661, ORBIT_Y = -450, ORBIT_R = 650, SWING = 50, ITEM = 118, VISIBLE = 4, SCROLL_PER = 0.7;
+const ON = books.length, ORBIT_X = 661, ORBIT_Y = -450, ORBIT_R = 650, SWING = 50, ITEM = 118, VISIBLE = 4, SCROLL_PER = 0.4;
 const ARC_REST = [[82, 130], [56, 134], [54, 120], [80, 140]], ARC_SWEEP = [34, 142];
 const HIDE_1 = 'inset(0% 0% 0% 100%)', HIDE_2 = 'inset(0% 100% 0% 0%)', SHOW = 'inset(0% 0% 0% 0%)';
 function arcPath(a0, a1, cx, cy, r, w, steps = 48) {
@@ -925,12 +926,34 @@ $$('.orb-tab').forEach((t) => t.addEventListener('click', () => { orbTab = t.dat
 function orbFit() { const w = orbRoot.clientWidth, h = orbRoot.clientHeight; orbRoot.style.setProperty('--orb-s', String(Math.min(w / 1000, (h - 100) / 520, 1.55))); }
 orbFit(); new ResizeObserver(orbFit).observe(orbRoot);
 
-let orbIndex = 0, shown = -1, dir = 1, tl = null, seg = 0;
+let orbIndex = 0, shown = -1, dir = 1, tl = null, orbF = 0;
 const arc = { a0: 0, a1: 0 };
 const drawArc = () => arcEl.setAttribute('d', arcPath(arc.a0, arc.a1, ORBIT_X, ORBIT_Y, ORBIT_R, 118));
-const parts = (i) => ({ orbit: orbits[i], head: heads[i], eye: heads[i].querySelector('.orb-eye'), t1: heads[i].querySelector('.orb-t1'), t2: heads[i].querySelector('.orb-t2'), body: bodies[i] });
+const hexRgb = (h) => [1, 3, 5].map((k) => parseInt(h.substr(k, 2), 16));
+const mixHex = (x, y, k) => { const A = hexRgb(x), B = hexRgb(y); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; };
+const parts = (i) => ({ head: heads[i], eye: heads[i].querySelector('.orb-eye'), t1: heads[i].querySelector('.orb-t1'), t2: heads[i].querySelector('.orb-t2'), body: bodies[i] });
+
+/* covers + band follow the scroll position continuously (f = 0..ON-1, fractional) */
+function orbScrub(f) {
+  orbF = f;
+  for (let j = 0; j < ON; j++) {
+    const o = j - f, ab = Math.abs(o), el = orbits[j];
+    if (ab >= 1) { if (el.style.visibility !== 'hidden') { el.style.visibility = 'hidden'; } continue; }
+    el.style.visibility = 'visible';
+    el.style.opacity = String(1 - Math.max(0, ab - .55) / .45);
+    el.style.transform = `rotate(${(o * SWING).toFixed(2)}deg)`;
+  }
+  const i0 = Math.min(ON - 1, Math.floor(f)), i1 = Math.min(ON - 1, i0 + 1), k = f - i0, s = Math.sin(Math.PI * k);
+  const r0 = ARC_REST[i0 % ARC_REST.length], r1 = ARC_REST[i1 % ARC_REST.length];
+  arc.a0 = (r0[0] + (r1[0] - r0[0]) * k) * (1 - s) + ARC_SWEEP[0] * s;
+  arc.a1 = (r0[1] + (r1[1] - r0[1]) * k) * (1 - s) + ARC_SWEEP[1] * s;
+  drawArc(); arcEl.setAttribute('fill', mixHex(books[i0].accent, books[i1].accent, k));
+  const idx = Math.round(f); if (idx !== orbIndex || shown === -1) orbSelect(idx, idx > orbIndex ? 1 : -1);
+}
+
+/* title + card swap when the nearest story changes */
 function orbShow(to) {
-  const from = shown, rest = ARC_REST[to % ARC_REST.length], tint = books[to].accent;
+  const from = shown;
   if (tl) tl.progress(1).kill();
   const B = parts(to);
   [orbits, heads, bodies].forEach((list) => list.forEach((el, i) => el.setAttribute('aria-hidden', i !== to)));
@@ -940,64 +963,58 @@ function orbShow(to) {
   $('#orbTrack').style.transform = `translateX(${start * ITEM}px)`;
   $('#orbSr').textContent = `الحكاية ${to + 1} من ${ON}: ${books[to].t2}`;
   if (!window.gsap || from === -1 || from === to || reduce) {
-    for (let i = 0; i < ON; i++) if (i !== to) { const p = parts(i); [p.orbit, p.head, p.body].forEach((el) => { el.style.visibility = 'hidden'; el.style.opacity = 0; }); }
-    [B.orbit, B.head, B.body, B.eye].forEach((el) => { el.style.visibility = 'visible'; el.style.opacity = 1; el.style.transform = ''; });
+    for (let i = 0; i < ON; i++) if (i !== to) { const p = parts(i); [p.head, p.body].forEach((el) => { el.style.visibility = 'hidden'; el.style.opacity = 0; }); }
+    [B.head, B.body, B.eye].forEach((el) => { el.style.visibility = 'visible'; el.style.opacity = 1; el.style.transform = ''; });
     B.t1.style.clipPath = SHOW; B.t2.style.clipPath = SHOW;
-    arc.a0 = rest[0]; arc.a1 = rest[1]; drawArc(); arcEl.setAttribute('fill', tint);
     shown = to; return;
   }
-  const A = parts(from), d = dir;
+  const A = parts(from);
   tl = gsap.timeline({ onComplete: () => { tl = null; } });
-  // cover: out over the top on the orbit, the next one swings in from the far side (mirrored for RTL)
-  tl.to(A.orbit, { rotation: -SWING * d, duration: .62, ease: 'power2.in' }, 0)
-    .set(A.orbit, { autoAlpha: 0, rotation: 0 }, .62)
-    .fromTo(B.orbit, { autoAlpha: 1, rotation: SWING * d }, { rotation: 0, duration: .95, ease: 'power3.out' }, .3);
-  // title: thin line clips one way, heavy line the other, then the next wipes in
-  tl.to(A.t1, { clipPath: HIDE_1, duration: .42, ease: 'power2.in' }, 0)
-    .to(A.t2, { clipPath: HIDE_2, duration: .42, ease: 'power2.in' }, .06)
-    .to(A.eye, { autoAlpha: 0, duration: .25 }, 0)
-    .set(A.head, { autoAlpha: 0 }, .5).set(B.head, { autoAlpha: 1 }, .5)
-    .fromTo(B.eye, { autoAlpha: 0, y: 6 }, { autoAlpha: 1, y: 0, duration: .4, ease: 'power2.out' }, .55)
-    .fromTo(B.t1, { clipPath: HIDE_1 }, { clipPath: SHOW, duration: .7, ease: 'power3.out' }, .55)
-    .fromTo(B.t2, { clipPath: HIDE_2 }, { clipPath: SHOW, duration: .7, ease: 'power3.out' }, .62);
-  // card: cross-fade, the incoming rows rise in turn
-  tl.to(A.body, { autoAlpha: 0, y: -6, duration: .3, ease: 'power1.in' }, .05)
-    .set(B.body, { autoAlpha: 1, y: 0 }, .4)
-    .fromTo(B.body.children, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: .5, stagger: .06, ease: 'power2.out' }, .4);
-  // the band stretches along the orbit with the covers, then settles, morphing colour
-  tl.to(arc, { a0: ARC_SWEEP[0], a1: ARC_SWEEP[1], duration: .6, ease: 'power2.inOut', onUpdate: drawArc }, 0)
-    .to(arc, { a0: rest[0], a1: rest[1], duration: .85, ease: 'power3.out', onUpdate: drawArc }, .6)
-    .to(arcEl, { attr: { fill: tint }, duration: 1.1, ease: 'power1.inOut' }, .1);
-  play('whoosh', .45, 1.1); setTimeout(() => play('page', .5), 380);
+  tl.to(A.t1, { clipPath: HIDE_1, duration: .26, ease: 'power2.in' }, 0)
+    .to(A.t2, { clipPath: HIDE_2, duration: .26, ease: 'power2.in' }, .03)
+    .to(A.eye, { autoAlpha: 0, duration: .18 }, 0)
+    .set(A.head, { autoAlpha: 0 }, .3).set(B.head, { autoAlpha: 1 }, .3)
+    .fromTo(B.eye, { autoAlpha: 0, y: 6 }, { autoAlpha: 1, y: 0, duration: .3, ease: 'power2.out' }, .3)
+    .fromTo(B.t1, { clipPath: HIDE_1 }, { clipPath: SHOW, duration: .5, ease: 'power3.out' }, .3)
+    .fromTo(B.t2, { clipPath: HIDE_2 }, { clipPath: SHOW, duration: .5, ease: 'power3.out' }, .35);
+  tl.to(A.body, { autoAlpha: 0, y: -6, duration: .2, ease: 'power1.in' }, 0)
+    .set(B.body, { autoAlpha: 1, y: 0 }, .22)
+    .fromTo(B.body.children, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: .35, stagger: .04, ease: 'power2.out' }, .22);
+  play('page', .45);
   shown = to;
 }
 function orbSelect(next, d) { if (next === orbIndex && shown !== -1) return; dir = d; orbIndex = next; orbShow(next); }
-orbSelect(0, 1);
+orbScrub(0);
 
-/* the page scroll drives the story: one stretch of scroll per story */
+/* the page scroll drives the story: one short stretch of scroll per story, then it settles on the nearest one */
 const STEPS = ON - 1;
-orbTrk.style.height = `calc(100svh * ${1 + STEPS * PER})`;
-let orbST = null;
-function orbGo(to, d) {
-  const next = ((to % ON) + ON) % ON; if (next === orbIndex) return;
-  const dd = d ?? (next > orbIndex ? 1 : -1);
+orbTrk.style.height = `calc(100svh * ${1 + STEPS * SCROLL_PER})`;
+let orbST = null, settleT = 0, settling = false;
+const segY = (i) => orbST.start + ((orbST.end - orbST.start) * i) / STEPS;
+function orbGo(to) {
+  const next = Math.max(0, Math.min(ON - 1, to)); if (next === orbIndex && !orbST) return;
   if (orbST) {
-    const y = orbST.start + ((orbST.end - orbST.start) * next) / STEPS; seg = next;
-    if (window.__lenis) window.__lenis.scrollTo(y, { duration: .9 }); else window.scrollTo({ top: y, behavior: 'smooth' });
-  }
-  orbSelect(next, dd);
+    settling = true;
+    if (window.__lenis) window.__lenis.scrollTo(segY(next), { duration: .8, onComplete: () => { settling = false; } }); else { window.scrollTo({ top: segY(next), behavior: 'smooth' }); setTimeout(() => { settling = false; }, 900); }
+  } else orbScrub(next);
+}
+function settle() {
+  if (!orbST || settling) return;
+  const y = orbST.scroll(); if (y <= orbST.start + 2 || y >= orbST.end - 2) return;
+  const f = orbST.progress * STEPS, n = Math.round(f);
+  if (Math.abs(f - n) > .01) orbGo(n);
 }
 function initOrbitScroll() {
   orbST = ScrollTrigger.create({ trigger: orbTrk, start: 'top top', end: 'bottom bottom',
-    onUpdate: (self) => { const s = Math.round(self.progress * STEPS); if (s === seg) return; const d = s > seg ? 1 : -1; seg = s; orbSelect(s, d); } });
+    onUpdate: (self) => { orbScrub(self.progress * STEPS); clearTimeout(settleT); settleT = setTimeout(settle, 220); } });
 }
-$('#orbPrev').addEventListener('click', () => orbGo(orbIndex - 1, -1));
-$('#orbNext').addEventListener('click', () => orbGo(orbIndex + 1, 1));
-orbRoot.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { e.preventDefault(); orbGo(orbIndex + 1, 1); } else if (e.key === 'ArrowRight') { e.preventDefault(); orbGo(orbIndex - 1, -1); } });
+$('#orbPrev').addEventListener('click', () => orbGo(orbIndex - 1));
+$('#orbNext').addEventListener('click', () => orbGo(orbIndex + 1));
+orbRoot.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { e.preventDefault(); orbGo(orbIndex + 1); } else if (e.key === 'ArrowRight') { e.preventDefault(); orbGo(orbIndex - 1); } });
 let swipe = null;
 const plates = $('#orbPlates');
 plates.addEventListener('pointerdown', (e) => { swipe = { x: e.clientX, y: e.clientY }; });
-plates.addEventListener('pointerup', (e) => { const s = swipe; swipe = null; if (!s) return; const dx = e.clientX - s.x; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.4) orbGo(orbIndex + (dx > 0 ? 1 : -1), dx > 0 ? 1 : -1); });
+plates.addEventListener('pointerup', (e) => { const s = swipe; swipe = null; if (!s) return; const dx = e.clientX - s.x; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.4) orbGo(orbIndex + (dx > 0 ? 1 : -1)); });
 plates.addEventListener('pointercancel', () => { swipe = null; });
 return { initOrbitScroll };
 })();
@@ -1023,7 +1040,7 @@ setTab(0); tabs.forEach((a, i) => a.addEventListener('click', () => setTab(i)));
 if (window.gsap && window.ScrollTrigger && !reduce) {
   gsap.registerPlugin(ScrollTrigger);
   if (window.Lenis) {
-    const lenis = new Lenis({ duration: 1.15, smoothWheel: true });
+    const lenis = new Lenis({ lerp: 0.12, smoothWheel: true, wheelMultiplier: 1 });
     window.__lenis = lenis; lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
     $$('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { const t = $(a.getAttribute('href')); if (t) { e.preventDefault(); lenis.scrollTo(t); } }));
   }
